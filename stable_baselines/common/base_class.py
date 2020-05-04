@@ -12,6 +12,7 @@ import cloudpickle
 import numpy as np
 import tensorflow as tf
 
+from stable_baselines.common.input import to_one_hot
 from stable_baselines.common.misc_util import set_global_seeds
 from stable_baselines.common.save_util import data_to_json, json_to_data, params_to_bytes, bytes_to_params
 from stable_baselines.common.policies import get_policy_from_name, ActorCriticPolicy
@@ -303,7 +304,7 @@ class BaseRLModel(ABC):
         :return: (BaseRLModel) the pretrained model
         """
         continuous_actions = isinstance(self.action_space, gym.spaces.Box)
-        discrete_actions = isinstance(self.action_space, gym.spaces.Discrete)
+        discrete_actions = isinstance(self.action_space, (gym.spaces.Discrete, gym.spaces.MultiDiscrete))
 
         assert discrete_actions or continuous_actions, 'Only Discrete and Box action spaces are supported'
 
@@ -322,10 +323,7 @@ class BaseRLModel(ABC):
                     loss = tf.reduce_mean(tf.square(actions_ph - deterministic_actions_ph))
                 else:
                     obs_ph, actions_ph, actions_logits_ph = self._get_pretrain_placeholders()
-                    # actions_ph has a shape if (n_batch,), we reshape it to (n_batch, 1)
-                    # so no additional changes is needed in the dataloader
-                    actions_ph = tf.expand_dims(actions_ph, axis=1)
-                    one_hot_actions = tf.one_hot(actions_ph, self.action_space.n)
+                    one_hot_actions = to_one_hot(actions_ph, self.action_space)
                     loss = tf.nn.softmax_cross_entropy_with_logits_v2(
                         logits=actions_logits_ph,
                         labels=tf.stop_gradient(one_hot_actions)
