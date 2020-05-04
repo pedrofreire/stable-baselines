@@ -12,7 +12,7 @@ from stable_baselines.common.base_class import _UnvecWrapper
 
 
 def generate_expert_traj(model, save_path=None, env=None, n_timesteps=0,
-                         n_episodes=100, image_folder='recorded_images'):
+                         n_episodes=100, image_folder='recorded_images', verbose=0):
     """
     Train expert controller (if needed) and record expert trajectories.
 
@@ -51,7 +51,8 @@ def generate_expert_traj(model, save_path=None, env=None, n_timesteps=0,
             isinstance(env.observation_space, spaces.Discrete)), "Observation space type not supported"
 
     assert (isinstance(env.action_space, spaces.Box) or
-            isinstance(env.action_space, spaces.Discrete)), "Action space type not supported"
+            isinstance(env.action_space, spaces.Discrete) or
+            isinstance(env.action_space, spaces.MultiDiscrete)), "Action space type not supported"
 
     # Check if we need to record images
     obs_space = env.observation_space
@@ -78,10 +79,11 @@ def generate_expert_traj(model, save_path=None, env=None, n_timesteps=0,
         folder_path = os.path.dirname(save_path)
         image_folder = os.path.join(folder_path, image_folder)
         os.makedirs(image_folder, exist_ok=True)
-        print("=" * 10)
-        print("Images will be recorded to {}/".format(image_folder))
-        print("Image shape: {}".format(obs_space.shape))
-        print("=" * 10)
+        if verbose:
+            print("=" * 10)
+            print("Images will be recorded to {}/".format(image_folder))
+            print("Image shape: {}".format(obs_space.shape))
+            print("=" * 10)
 
     if n_timesteps > 0 and isinstance(model, BaseRLModel):
         model.learn(n_timesteps)
@@ -145,17 +147,12 @@ def generate_expert_traj(model, save_path=None, env=None, n_timesteps=0,
             reward_sum = 0.0
             ep_idx += 1
 
-    if isinstance(env.observation_space, spaces.Box) and not record_images:
-        observations = np.concatenate(observations).reshape((-1,) + env.observation_space.shape)
-    elif isinstance(env.observation_space, spaces.Discrete):
-        observations = np.array(observations).reshape((-1, 1))
-    elif record_images:
+    if not record_images:
+        observations = np.array(observations).reshape((-1,) + env.observation_space.shape)
+    else:
         observations = np.array(observations)
 
-    if isinstance(env.action_space, spaces.Box):
-        actions = np.concatenate(actions).reshape((-1,) + env.action_space.shape)
-    elif isinstance(env.action_space, spaces.Discrete):
-        actions = np.array(actions).reshape((-1, 1))
+    actions = np.array(actions).reshape((-1,) + env.action_space.shape)
 
     rewards = np.array(rewards)
     episode_starts = np.array(episode_starts[:-1])
@@ -170,8 +167,9 @@ def generate_expert_traj(model, save_path=None, env=None, n_timesteps=0,
         'episode_starts': episode_starts
     }  # type: Dict[str, np.ndarray]
 
-    for key, val in numpy_dict.items():
-        print(key, val.shape)
+    if verbose:
+        for key, val in numpy_dict.items():
+            print(key, val.shape)
 
     if save_path is not None:
         np.savez(save_path, **numpy_dict)

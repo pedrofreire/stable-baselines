@@ -106,7 +106,7 @@ class TRPO(ActorCriticRLModel):
     def _get_pretrain_placeholders(self):
         policy = self.policy_pi
         action_ph = policy.pdtype.sample_placeholder([None])
-        if isinstance(self.action_space, gym.spaces.Discrete):
+        if isinstance(self.action_space, (gym.spaces.Discrete, gym.spaces.MultiDiscrete)):
             return policy.obs_ph, action_ph, policy.policy
         return policy.obs_ph, action_ph, policy.deterministic_action
 
